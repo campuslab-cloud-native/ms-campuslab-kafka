@@ -1,0 +1,129 @@
+asyncapi: 2.6.0
+
+info:
+  title: CampusLab Kafka
+  version: 1.0.0
+
+servers:
+
+  kafka:
+    url: localhost:9092
+    protocol: kafka
+
+channels:
+
+  bookings.events:
+
+    publish:
+      operationId: publishBookingEvent
+      message:
+        $ref: '#/components/messages/BookingEvent'
+
+    subscribe:
+      operationId: consumeBookingEvent
+      message:
+        $ref: '#/components/messages/BookingEvent'
+
+  audit.timeline:
+
+    publish:
+      operationId: publishAuditEvent
+      message:
+        $ref: '#/components/messages/AuditEvent'
+
+    subscribe:
+      operationId: consumeAuditEvent
+      message:
+        $ref: '#/components/messages/AuditEvent'
+
+components:
+
+  messages:
+
+    BookingEvent:
+
+      payload:
+
+        type: object
+
+        required:
+          - eventId
+          - type
+          - bookingId
+          - timestamp
+
+        properties:
+
+          eventId:
+            type: string
+
+          type:
+            type: string
+            enum:
+              - BOOKING_CREATED
+              - BOOKING_APPROVED
+              - BOOKING_PREPARING
+              - BOOKING_IN_USE
+              - BOOKING_RETURNED
+              - BOOKING_CANCELLED
+
+          bookingId:
+            type: integer
+            format: int64
+
+          resourceId:
+            type: integer
+            format: int64
+
+          userId:
+            type: string
+
+          timestamp:
+            type: string
+            format: date-time
+
+          traceId:
+            type: string
+
+          correlationId:
+            type: string
+
+    AuditEvent:
+
+      payload:
+
+        type: object
+
+        required:
+          - eventId
+          - bookingId
+          - type
+          - timestamp
+
+        properties:
+
+          eventId:
+            type: string
+
+          bookingId:
+            type: integer
+            format: int64
+
+          userId:
+            type: string
+
+          type:
+            type: string
+
+          timestamp:
+            type: string
+            format: date-time
+
+          source:
+            type: string
+
+          traceId:
+            type: string
+
+          correlationId:
+            type: string
