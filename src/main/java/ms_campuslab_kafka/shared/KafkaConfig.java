@@ -1,4 +1,4 @@
-package main.java.ms_campuslab_kafka.shared;
+package ms_campuslab_kafka.shared;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,7 +16,7 @@ public class KafkaConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    @Bean(detroyMethod = "close")
+    @Bean(destroyMethod = "close")
     public AdminClient adminClient(){
 
         Map<String, Object> properties = new HashMap<>();
