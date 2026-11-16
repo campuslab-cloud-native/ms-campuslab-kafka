@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 @Repository
-@RequiredArgsConstructor 
+@RequiredArgsConstructor
 public class KafkaAdminAdapter implements KafkaAdminPort {
 
     private final AdminClient adminClient;

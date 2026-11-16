@@ -1,7 +1,7 @@
-
 package ms_campuslab_kafka.domain;
 
 import java.util.List;
+
 public interface KafkaAdminPort {
 
     void createTopic(
