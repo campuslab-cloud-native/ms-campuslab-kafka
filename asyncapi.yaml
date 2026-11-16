@@ -1,62 +1,84 @@
 asyncapi: 2.6.0
-
 info:
-  title: CampusLab Kafka
-  version: 1.0.0
+  title: CampusLab - Eventos Kafka
+  version: 1.2.0
+  description: >-
+    Contrato de diseño para los eventos Kafka de CampusLab (Evaluación Parcial N.º 5).
+    Kafka complementa RabbitMQ. Validar DTO, productores y consumidores contra el código
+    antes de considerar implementado este contrato.
+
+defaultContentType: application/json
 
 servers:
-
-  kafka:
+  local:
     url: localhost:9092
     protocol: kafka
+    description: >-
+      Ejemplo local; en Docker o EC2 usar la dirección anunciada por los brokers
+      mediante advertised.listeners y alcanzable desde cada microservicio.
 
 channels:
-
   bookings.events:
-
+    description: Eventos del ciclo de vida de las reservas.
+    bindings:
+      kafka:
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: 604800000
+        bindingVersion: '0.4.0'
     publish:
       operationId: publishBookingEvent
+      summary: Publicar un evento de reserva.
       message:
         $ref: '#/components/messages/BookingEvent'
-
     subscribe:
       operationId: consumeBookingEvent
+      summary: Consumir eventos de reservas desde un grupo consumidor.
       message:
         $ref: '#/components/messages/BookingEvent'
 
   audit.timeline:
-
+    description: Eventos de auditoría de reservas, conservados hasta siete días.
+    bindings:
+      kafka:
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: 604800000
+        bindingVersion: '0.4.0'
     publish:
       operationId: publishAuditEvent
+      summary: Publicar un evento de auditoría.
       message:
         $ref: '#/components/messages/AuditEvent'
-
     subscribe:
       operationId: consumeAuditEvent
+      summary: Consumir eventos de auditoría.
       message:
         $ref: '#/components/messages/AuditEvent'
 
 components:
-
   messages:
-
     BookingEvent:
-
+      name: BookingEvent
+      title: Evento de reserva
+      contentType: application/json
+      description: >-
+        Evento de cambio de estado de reserva. Se propone usar bookingId como
+        clave de partición Kafka para conservar el orden por reserva.
       payload:
-
         type: object
-
         required:
           - eventId
           - type
           - bookingId
           - timestamp
-
         properties:
-
           eventId:
             type: string
-
           type:
             type: string
             enum:
@@ -66,64 +88,49 @@ components:
               - BOOKING_IN_USE
               - BOOKING_RETURNED
               - BOOKING_CANCELLED
-
           bookingId:
             type: integer
             format: int64
-
           resourceId:
             type: integer
             format: int64
-
           userId:
             type: string
-
           timestamp:
             type: string
             format: date-time
-
           traceId:
             type: string
-
           correlationId:
             type: string
 
     AuditEvent:
-
+      name: AuditEvent
+      title: Evento de auditoría
+      contentType: application/json
       payload:
-
         type: object
-
         required:
           - eventId
           - bookingId
           - type
           - timestamp
-
         properties:
-
           eventId:
             type: string
-
           bookingId:
             type: integer
             format: int64
-
           userId:
             type: string
-
           type:
             type: string
-
           timestamp:
             type: string
             format: date-time
-
           source:
             type: string
-
           traceId:
             type: string
-
           correlationId:
             type: string

@@ -1,0 +1,159 @@
+name: campuslab-kafka
+
+x-zookeeper-common: &zookeeper-common
+  image: confluentinc/cp-zookeeper:7.6.15
+  restart: unless-stopped
+  environment: &zookeeper-env
+    ZOOKEEPER_CLIENT_PORT: 2181
+    ZOOKEEPER_TICK_TIME: 2000
+    ZOOKEEPER_INIT_LIMIT: 10
+    ZOOKEEPER_SYNC_LIMIT: 5
+    ZOOKEEPER_SERVERS: 'zookeeper1:2888:3888;zookeeper2:2888:3888;zookeeper3:2888:3888'
+  networks: [kafka-net]
+
+x-kafka-common: &kafka-common
+  image: confluentinc/cp-kafka:7.6.15
+  restart: unless-stopped
+  depends_on:
+    - zookeeper1
+    - zookeeper2
+    - zookeeper3
+  networks: [kafka-net]
+  environment: &kafka-env
+    KAFKA_ZOOKEEPER_CONNECT: 'zookeeper1:2181,zookeeper2:2181,zookeeper3:2181'
+    KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT'
+    KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+    KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+    KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+    KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+    KAFKA_MIN_INSYNC_REPLICAS: 2
+    KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+    KAFKA_LOG_RETENTION_HOURS: 168
+    KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+services:
+  zookeeper1:
+    <<: *zookeeper-common
+    hostname: zookeeper1
+    environment:
+      <<: *zookeeper-env
+      ZOOKEEPER_SERVER_ID: 1
+    volumes:
+      - zk1-data:/var/lib/zookeeper/data
+      - zk1-log:/var/lib/zookeeper/log
+
+  zookeeper2:
+    <<: *zookeeper-common
+    hostname: zookeeper2
+    environment:
+      <<: *zookeeper-env
+      ZOOKEEPER_SERVER_ID: 2
+    volumes:
+      - zk2-data:/var/lib/zookeeper/data
+      - zk2-log:/var/lib/zookeeper/log
+
+  zookeeper3:
+    <<: *zookeeper-common
+    hostname: zookeeper3
+    environment:
+      <<: *zookeeper-env
+      ZOOKEEPER_SERVER_ID: 3
+    volumes:
+      - zk3-data:/var/lib/zookeeper/data
+      - zk3-log:/var/lib/zookeeper/log
+
+  kafka1:
+    <<: *kafka-common
+    hostname: kafka1
+    ports:
+      - '9092:9092'
+    environment:
+      <<: *kafka-env
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENERS: 'INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka1:29092,EXTERNAL://${KAFKA_HOST:-localhost}:9092'
+    volumes:
+      - kafka1-data:/var/lib/kafka/data
+
+  kafka2:
+    <<: *kafka-common
+    hostname: kafka2
+    ports:
+      - '9093:9093'
+    environment:
+      <<: *kafka-env
+      KAFKA_BROKER_ID: 2
+      KAFKA_LISTENERS: 'INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka2:29092,EXTERNAL://${KAFKA_HOST:-localhost}:9093'
+    volumes:
+      - kafka2-data:/var/lib/kafka/data
+
+  kafka3:
+    <<: *kafka-common
+    hostname: kafka3
+    ports:
+      - '9094:9094'
+    environment:
+      <<: *kafka-env
+      KAFKA_BROKER_ID: 3
+      KAFKA_LISTENERS: 'INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9094'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka3:29092,EXTERNAL://${KAFKA_HOST:-localhost}:9094'
+    volumes:
+      - kafka3-data:/var/lib/kafka/data
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.15
+    restart: 'no'
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    networks: [kafka-net]
+    entrypoint: ['/bin/bash', '-ec']
+    command: |
+      echo 'Esperando a que los 3 brokers estén disponibles...'
+      cub kafka-ready -b kafka1:29092 3 120
+      for topic in bookings.events audit.timeline; do
+        if kafka-topics --bootstrap-server kafka1:29092 --describe --topic "$$topic" >/dev/null 2>&1; then
+          echo "El tópico $$topic ya existe; se conservan sus datos."
+        else
+          kafka-topics --bootstrap-server kafka1:29092 --create \
+            --topic "$$topic" --partitions 3 --replication-factor 3 \
+            --config retention.ms=604800000 --config cleanup.policy=delete
+        fi
+        # También armoniza retención y política si el tópico existía previamente.
+        kafka-configs --bootstrap-server kafka1:29092 --entity-type topics \
+          --entity-name "$$topic" --alter \
+          --add-config retention.ms=604800000,cleanup.policy=delete
+        kafka-topics --bootstrap-server kafka1:29092 --describe --topic "$$topic"
+      done
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    restart: unless-stopped
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    ports:
+      - '${KAFKA_UI_BIND:-127.0.0.1}:8080:8080'
+    environment:
+      KAFKA_CLUSTERS_0_NAME: campuslab
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka1:29092,kafka2:29092,kafka3:29092'
+    networks: [kafka-net]
+
+networks:
+  kafka-net:
+    driver: bridge
+
+volumes:
+  zk1-data:
+  zk1-log:
+  zk2-data:
+  zk2-log:
+  zk3-data:
+  zk3-log:
+  kafka1-data:
+  kafka2-data:
+  kafka3-data:
