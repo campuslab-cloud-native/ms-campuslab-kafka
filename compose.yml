@@ -102,32 +102,45 @@ services:
     volumes:
       - kafka3-data:/var/lib/kafka/data
 
+  
   kafka-init:
     image: confluentinc/cp-kafka:7.6.15
-    restart: 'no'
     depends_on:
       - kafka1
       - kafka2
       - kafka3
-    networks: [kafka-net]
-    entrypoint: ['/bin/bash', '-ec']
-    command: |
-      echo 'Esperando a que los 3 brokers estén disponibles...'
-      cub kafka-ready -b kafka1:29092 3 120
-      for topic in bookings.events audit.timeline; do
-        if kafka-topics --bootstrap-server kafka1:29092 --describe --topic "$$topic" >/dev/null 2>&1; then
-          echo "El tópico $$topic ya existe; se conservan sus datos."
-        else
-          kafka-topics --bootstrap-server kafka1:29092 --create \
-            --topic "$$topic" --partitions 3 --replication-factor 3 \
-            --config retention.ms=604800000 --config cleanup.policy=delete
-        fi
-        # También armoniza retención y política si el tópico existía previamente.
-        kafka-configs --bootstrap-server kafka1:29092 --entity-type topics \
-          --entity-name "$$topic" --alter \
-          --add-config retention.ms=604800000,cleanup.policy=delete
-        kafka-topics --bootstrap-server kafka1:29092 --describe --topic "$$topic"
-      done
+    networks:
+      - kafka-net
+    restart: "no"
+    entrypoint: ["/bin/bash", "-ec"]
+    command:
+      - |
+        echo "Esperando a que Kafka esté disponible..."
+
+        cub kafka-ready -b kafka1:29092 3 120
+
+        for topic in bookings.events audit.timeline; do
+          if kafka-topics --bootstrap-server kafka1:29092 \
+            --list | grep -Fxq "$$topic"; then
+
+            echo "El topico $$topic ya existe"
+
+          else
+            echo "Creando topico $$topic..."
+
+            kafka-topics \
+              --bootstrap-server kafka1:29092 \
+              --create \
+              --topic "$$topic" \
+              --partitions 3 \
+              --replication-factor 3 \
+              --config retention.ms=604800000 \
+              --config cleanup.policy=delete
+          fi
+        done
+
+        echo "Inicializacion de topicos finalizada."
+
 
   kafka-ui:
     image: provectuslabs/kafka-ui:v0.7.2

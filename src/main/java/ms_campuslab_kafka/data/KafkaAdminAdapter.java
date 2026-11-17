@@ -42,6 +42,7 @@ public class KafkaAdminAdapter implements KafkaAdminPort {
             );
         }
     }
+    
 
     @Override
     public void deleteTopic(String topicName) {
