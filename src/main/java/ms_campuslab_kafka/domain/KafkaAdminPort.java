@@ -15,8 +15,8 @@ public interface KafkaAdminPort {
 
     void deleteTopic(String topicName);
 
-    Map<String, String> getTopicConfig(String topicName);
+    Map<String,String> getTopicConfig(String topicName);
 
-    void updateTopicConfig(String topicName, int days);
+    void updateRetention(String topicName, int days);
 
 }
