@@ -1,6 +1,7 @@
 package ms_campuslab_kafka.domain;
 
 import java.util.List;
+import java.util.Map;
 
 public interface KafkaAdminPort {
 
@@ -13,5 +14,9 @@ public interface KafkaAdminPort {
     List<String> listTopics();
 
     void deleteTopic(String topicName);
+
+    Map<String, String> getTopicConfig(String topicName);
+
+    void updateTopicConfig(String topicName, int days);
 
 }
