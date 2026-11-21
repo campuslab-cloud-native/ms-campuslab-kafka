@@ -19,11 +19,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.PutMapping;
-
-
-
-
 
 @RequestMapping ("/api/kafka/topics")
 @RestController 
@@ -57,6 +52,11 @@ public class KafkaAdminController {
     public ResponseEntity<Void> updateTopicConfig(@PathVariable String name, @RequestParam int days) {
         kafkaAdminService.updateRetention(name, days);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/consumer-groups")
+    public List<String> listConsumerGroups() {
+        return kafkaAdminService.listConsumerGroups();
     }
     
     

@@ -48,4 +48,8 @@ public class KafkaAdminService {
         }
         kafkaAdminPort.updateRetention(topicName, days);
     }
+
+    public List<String> listConsumerGroups() {
+        return kafkaAdminPort.listConsumerGroups();
+    }
 }

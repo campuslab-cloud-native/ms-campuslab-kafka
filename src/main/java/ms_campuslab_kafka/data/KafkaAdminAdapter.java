@@ -3,6 +3,7 @@ package ms_campuslab_kafka.data;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AlterConfigOp;
 import org.apache.kafka.clients.admin.ConfigEntry;
+import org.apache.kafka.clients.admin.ListGroupsOptions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.config.ConfigResource;
 import org.springframework.stereotype.Repository;
@@ -180,6 +181,39 @@ public class KafkaAdminAdapter implements KafkaAdminPort {
         }
     }
 
+
+
+    @Override
+    public List<String> listConsumerGroups() {
+        try {
+            return adminClient
+                    .listGroups(ListGroupsOptions.forConsumerGroups())
+                    .all()
+                    .get(30, TimeUnit.SECONDS)
+                    .stream()
+                    .map(group -> group.groupId())                    
+                    .sorted()
+                    .toList();
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Consult consumer groups kafka interrupted", e
+            );
+        } catch (ExecutionException e) {
+            throw new IllegalStateException(
+                    "Consult consumer groups kafka execution error", e
+            );
+        } catch (java.util.concurrent.TimeoutException e) {
+            throw new IllegalStateException(
+                    "Consult consumer groups kafka timeout error", e
+            );
+        }
+    }
+
 }
+
+
+
 
 

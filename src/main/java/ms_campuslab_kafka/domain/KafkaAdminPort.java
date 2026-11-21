@@ -19,4 +19,6 @@ public interface KafkaAdminPort {
 
     void updateRetention(String topicName, int days);
 
+    List<String> listConsumerGroups();
+
 }
