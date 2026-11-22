@@ -1,0 +1,134 @@
+openapi: 3.0.3
+
+info:
+  title: CampusLab Kafka Admin API
+  version: 1.0.0
+  description: >-
+    API HTTP administrativa del servicio Kafka. Usa el prefijo actual
+    /api/kafka/topics (no /api/v1). El controlador no implementa autenticación
+    HTTP propia.
+
+servers:
+  - url: http://localhost:8086
+
+paths:
+  /api/kafka/topics:
+    get:
+      summary: Listar tópicos
+      operationId: listTopics
+      responses:
+        '200':
+          description: Nombres de tópicos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+    post:
+      summary: Crear tópico
+      operationId: createTopic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTopicRequest'
+      responses:
+        '201':
+          description: Tópico creado
+        '400':
+          description: Solicitud inválida
+
+  /api/kafka/topics/{topicName}:
+    delete:
+      summary: Eliminar tópico
+      operationId: deleteTopic
+      parameters:
+        - name: topicName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Tópico eliminado
+
+  /api/kafka/topics/{name}/config:
+    get:
+      summary: Consultar configuración del tópico
+      operationId: getTopicConfig
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Configuración del tópico como mapa de nombres y valores
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+
+  /api/kafka/topics/{name}/retention:
+    patch:
+      summary: Actualizar retención del tópico
+      operationId: updateTopicRetention
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: days
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 7
+      responses:
+        '204':
+          description: Retención actualizada
+        '400':
+          description: Los días deben estar entre 1 y 7
+
+  /api/kafka/topics/consumer-groups:
+    get:
+      summary: Listar consumer groups
+      operationId: listConsumerGroups
+      responses:
+        '200':
+          description: Identificadores de consumer groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+components:
+  schemas:
+    CreateTopicRequest:
+      type: object
+      required:
+        - name
+        - partitions
+        - replicationFactor
+      properties:
+        name:
+          type: string
+          minLength: 1
+        partitions:
+          type: integer
+          minimum: 1
+        replicationFactor:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 3
