@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@RequestMapping ("/api/kafka/topics")
+@RequestMapping ("/api/v1/kafka/topics")
 @RestController 
 @RequiredArgsConstructor 
 public class KafkaAdminController {
