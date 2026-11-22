@@ -4,31 +4,34 @@ info:
   title: CampusLab Kafka Admin API
   version: 1.0.0
   description: >-
-    API HTTP administrativa del servicio Kafka. Usa el prefijo actual
-    /api/kafka/topics (no /api/v1). El controlador no implementa autenticación
-    HTTP propia.
+    API HTTP administrativa del servicio Kafka, bajo el prefijo /api/v1/kafka.
+    Los errores devuelven {"message": "..."}. El controlador no implementa
+    autenticación HTTP propia: no exponerlo fuera de una red administrada.
+    Los tópicos oficiales (bookings.events, audit.timeline y sus .DLT) no se pueden eliminar (409).
 
 servers:
   - url: http://localhost:8086
 
 paths:
-  /api/kafka/topics:
+  /api/v1/kafka/topics:
     get:
       summary: Listar tópicos
       operationId: listTopics
       responses:
         '200':
-          description: Nombres de tópicos
+          description: Nombres de los tópicos, ordenados
           content:
             application/json:
               schema:
                 type: array
                 items:
                   type: string
-
     post:
       summary: Crear tópico
       operationId: createTopic
+      description: >-
+        Si no se indican retentionDays y cleanupPolicy, el tópico se crea con 7 días de
+        retención y la política delete.
       requestBody:
         required: true
         content:
@@ -39,9 +42,13 @@ paths:
         '201':
           description: Tópico creado
         '400':
-          description: Solicitud inválida
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '502':
+          $ref: '#/components/responses/BadGateway'
 
-  /api/kafka/topics/{topicName}:
+  /api/v1/kafka/topics/{topicName}:
     delete:
       summary: Eliminar tópico
       operationId: deleteTopic
@@ -54,8 +61,39 @@ paths:
       responses:
         '204':
           description: Tópico eliminado
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: El tópico pertenece a la topología oficial y está protegido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+    get:
+      summary: Describir tópico
+      operationId: describeTopic
+      description: Particiones, factor de replicación y configuración principal.
+      parameters:
+        - name: topicName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Descripción del tópico
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicInfo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
 
-  /api/kafka/topics/{name}/config:
+  /api/v1/kafka/topics/{name}/config:
     get:
       summary: Consultar configuración del tópico
       operationId: getTopicConfig
@@ -67,18 +105,25 @@ paths:
             type: string
       responses:
         '200':
-          description: Configuración del tópico como mapa de nombres y valores
+          description: retention.ms y cleanup.policy
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties:
                   type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
 
-  /api/kafka/topics/{name}/retention:
+  /api/v1/kafka/topics/{name}/retention:
     patch:
       summary: Actualizar retención del tópico
       operationId: updateTopicRetention
+      description: >-
+        Rango permitido en días: bookings.events 3 a 7; audit.timeline 14 a 30;
+        tópicos .DLT 7 a 14; cualquier otro, 1 a 30.
       parameters:
         - name: name
           in: path
@@ -91,14 +136,44 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 7
+            maximum: 30
       responses:
         '204':
           description: Retención actualizada
         '400':
-          description: Los días deben estar entre 1 y 7
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
 
-  /api/kafka/topics/consumer-groups:
+  /api/v1/kafka/topics/{name}/cleanup-policy:
+    patch:
+      summary: Actualizar la cleanup policy del tópico
+      operationId: updateTopicCleanupPolicy
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: value
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [delete, compact, 'compact,delete']
+      responses:
+        '204':
+          description: Política actualizada
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
+  /api/v1/kafka/topics/consumer-groups:
     get:
       summary: Listar consumer groups
       operationId: listConsumerGroups
@@ -112,6 +187,29 @@ paths:
                 items:
                   type: string
 
+  /api/v1/kafka/topics/consumer-groups/{groupId}:
+    get:
+      summary: Describir un consumer group
+      operationId: describeConsumerGroup
+      description: Estado, número de miembros y lag (retraso) total y por partición.
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Estado del consumer group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsumerGroupInfo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
 components:
   schemas:
     CreateTopicRequest:
@@ -123,12 +221,80 @@ components:
       properties:
         name:
           type: string
-          minLength: 1
+          pattern: '^[A-Za-z0-9._-]{1,249}$'
         partitions:
           type: integer
           minimum: 1
         replicationFactor:
           type: integer
-          format: int32
           minimum: 1
           maximum: 3
+        retentionDays:
+          type: integer
+          minimum: 1
+          maximum: 30
+          description: Opcional. Por defecto, 7 días.
+        cleanupPolicy:
+          type: string
+          enum: [delete, compact, 'compact,delete']
+          description: Opcional. Por defecto, delete.
+    TopicInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        partitions:
+          type: integer
+        replicationFactor:
+          type: integer
+        configs:
+          type: object
+          additionalProperties:
+            type: string
+    ConsumerGroupInfo:
+      type: object
+      properties:
+        groupId:
+          type: string
+        state:
+          type: string
+        members:
+          type: integer
+        totalLag:
+          type: integer
+          format: int64
+        lagByPartition:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+    ApiError:
+      type: object
+      properties:
+        message:
+          type: string
+  responses:
+    BadRequest:
+      description: Parámetros inválidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: El tópico o el consumer group no existe
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: El tópico ya existe
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    BadGateway:
+      description: Kafka rechazó la operación o no está disponible
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'

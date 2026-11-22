@@ -40,7 +40,29 @@ channels:
         $ref: '#/components/messages/BookingEvent'
 
   audit.timeline:
-    description: Eventos de auditoría publicados por ms-campuslab-audit; clave bookingId.
+    description: Eventos de auditoría publicados por ms-campuslab-audit; clave eventId (para que la compactación conserve el historial).
+    bindings:
+      kafka:
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [compact, delete]
+          retention.ms: 1209600000
+        bindingVersion: '0.4.0'
+    publish:
+      operationId: publishAuditEvent
+      summary: Publicar evento derivado desde ms-campuslab-audit.
+      message:
+        $ref: '#/components/messages/AuditEvent'
+    subscribe:
+      operationId: consumeAuditEvent
+      summary: Consumir desde ms-campuslab-report.
+      description: 'Consumer group configurado: campuslab-report.'
+      message:
+        $ref: '#/components/messages/AuditEvent'
+
+  bookings.events.DLT:
+    description: Eventos de reserva que ms-campuslab-audit no pudo procesar tras los reintentos.
     bindings:
       kafka:
         partitions: 3
@@ -49,12 +71,17 @@ channels:
           cleanup.policy: [delete]
           retention.ms: 604800000
         bindingVersion: '0.4.0'
-    publish:
-      operationId: publishAuditEvent
-      summary: Publicar evento derivado desde ms-campuslab-audit.
-      description: No hay consumidor de este tópico en los repositorios actuales.
-      message:
-        $ref: '#/components/messages/AuditEvent'
+
+  audit.timeline.DLT:
+    description: Reservado para eventos de auditoría que un consumidor no pueda procesar.
+    bindings:
+      kafka:
+        partitions: 3
+        replicas: 3
+        topicConfiguration:
+          cleanup.policy: [delete]
+          retention.ms: 604800000
+        bindingVersion: '0.4.0'
 
 components:
   messages:

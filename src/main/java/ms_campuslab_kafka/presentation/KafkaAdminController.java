@@ -5,7 +5,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import ms_campuslab_kafka.domain.ConsumerGroupInfo;
 import ms_campuslab_kafka.domain.KafkaAdminService;
+import ms_campuslab_kafka.domain.TopicInfo;
 
 import java.util.List;
 import java.util.Map;
@@ -21,8 +23,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 @RequestMapping ("/api/v1/kafka/topics")
-@RestController 
-@RequiredArgsConstructor 
+@RestController
+@RequiredArgsConstructor
 public class KafkaAdminController {
     private final KafkaAdminService kafkaAdminService;
 
@@ -33,7 +35,13 @@ public class KafkaAdminController {
 
     @PostMapping
     public ResponseEntity<Void> createTopic(@Valid @RequestBody CreateTopicRequest request) {
-        kafkaAdminService.createTopic(request.name(), request.partitions(), request.replicationFactor());
+        kafkaAdminService.createTopic(
+            request.name(),
+            request.partitions(),
+            request.replicationFactor(),
+            request.retentionDays(),
+            request.cleanupPolicy()
+        );
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -41,6 +49,12 @@ public class KafkaAdminController {
     public ResponseEntity<Void> deleteTopic(@PathVariable String topicName) {
         kafkaAdminService.deleteTopic(topicName);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Particiones, factor de replicación y configuración principal del tópico. */
+    @GetMapping("/{name}")
+    public TopicInfo describeTopic(@PathVariable String name) {
+        return kafkaAdminService.describeTopic(name);
     }
 
     @GetMapping("/{name}/config")
@@ -54,11 +68,22 @@ public class KafkaAdminController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Cambia la cleanup policy: delete, compact o compact,delete. */
+    @PatchMapping("/{name}/cleanup-policy")
+    public ResponseEntity<Void> updateCleanupPolicy(@PathVariable String name, @RequestParam String value) {
+        kafkaAdminService.updateCleanupPolicy(name, value);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/consumer-groups")
     public List<String> listConsumerGroups() {
         return kafkaAdminService.listConsumerGroups();
     }
-    
-    
-    
+
+    /** Estado, miembros y lag (retraso) de un consumer group. */
+    @GetMapping("/consumer-groups/{groupId}")
+    public ConsumerGroupInfo describeConsumerGroup(@PathVariable String groupId) {
+        return kafkaAdminService.describeConsumerGroup(groupId);
+    }
+
 }

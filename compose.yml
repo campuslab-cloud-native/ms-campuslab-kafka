@@ -119,7 +119,11 @@ services:
 
         cub kafka-ready -b kafka1:29092 3 120
 
-        for topic in bookings.events audit.timeline; do
+        # Crea el topico solo si no existe (no modifica los existentes).
+        # Uso: create_topic <nombre> <opciones --config ...>
+        create_topic() {
+          topic="$$1"
+          shift
           if kafka-topics --bootstrap-server kafka1:29092 \
             --list | grep -Fxq "$$topic"; then
 
@@ -134,10 +138,28 @@ services:
               --topic "$$topic" \
               --partitions 3 \
               --replication-factor 3 \
-              --config retention.ms=604800000 \
-              --config cleanup.policy=delete
+              "$$@"
           fi
-        done
+        }
+
+        # Fuente de verdad de los eventos de reserva: retencion de 7 dias
+        create_topic bookings.events \
+          --config retention.ms=604800000 \
+          --config cleanup.policy=delete
+
+        # Historial de auditoria: compact,delete y retencion de 14 dias
+        create_topic audit.timeline \
+          --config retention.ms=1209600000 \
+          --config cleanup.policy=compact,delete
+
+        # Dead letter topics: mensajes que fallaron tras los reintentos (7 dias)
+        create_topic bookings.events.DLT \
+          --config retention.ms=604800000 \
+          --config cleanup.policy=delete
+
+        create_topic audit.timeline.DLT \
+          --config retention.ms=604800000 \
+          --config cleanup.policy=delete
 
         echo "Inicializacion de topicos finalizada."
 
