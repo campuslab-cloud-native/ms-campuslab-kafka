@@ -7,8 +7,8 @@ complementa RabbitMQ; no lo sustituye.
 
 - `compose.yml` define tres nodos ZooKeeper, tres brokers Kafka, Kafka UI y el
   inicializador de tópicos.
-- `KafkaAdminController` implementa el API HTTP administrativo. Se ejecuta
-  como aplicación Spring Boot separada; no es un servicio del Compose Kafka.
+- `KafkaAdminController` implementa el API HTTP administrativo, disponible
+  como el servicio `kafka-admin` de Compose en `127.0.0.1:8086`.
 - Bookings publica eventos en `bookings.events`.
 - Audit consume `bookings.events` con el grupo `campuslab-audit` y publica
   eventos transformados en `audit.timeline`.
@@ -26,6 +26,7 @@ estado de un despliegue EC2 deben verificarse en ese entorno.
 | `kafka2` | `kafka2:29092` | `9093` |
 | `kafka3` | `kafka3:29092` | `9094` |
 | Kafka UI | Navegador del host | `8080`, ligado por defecto a loopback |
+| Kafka Admin | `kafka-admin:8086` | `127.0.0.1:8086` |
 | ZooKeeper | Tres nodos internos | No publica puertos al host |
 
 El Compose usa Confluent Kafka/ZooKeeper `7.6.15`. Los brokers usan listeners
@@ -66,8 +67,7 @@ configurados por estos servicios.
 
 ## API administrativo Kafka
 
-El administrador corre en el puerto `8086` y expone `/api/kafka/topics`
-(excepción al prefijo `/api/v1/` de las APIs de negocio):
+El administrador corre en el puerto `8086` y expone `/api/v1/kafka/topics`:
 
 - listar, crear y borrar tópicos;
 - consultar su configuración y actualizar la retención entre 1 y 7 días;
@@ -100,11 +100,33 @@ Para apagar el entorno local:
 docker compose down
 ```
 
-La aplicación administrativa se ejecuta por separado:
+### Construir, iniciar y actualizar Kafka Admin
 
 ```bash
-./mvnw spring-boot:run
+docker compose build kafka-admin
+docker compose up -d kafka-admin
+```
+
+Compose iniciará también los brokers Kafka de los que depende el administrador.
+Para comprobar el endpoint de listado:
+
+```bash
+curl http://127.0.0.1:8086/api/v1/kafka/topics
+```
+
+Para actualizar únicamente Kafka Admin después de cambiar su código:
+
+```bash
+docker compose build kafka-admin
+docker compose up -d --no-deps kafka-admin
+```
+
+Para revisar sus logs:
+
+```bash
+docker compose logs -f kafka-admin
 ```
 
 Su propiedad `KAFKA_BOOTSTRAP_SERVERS` tiene por defecto los puertos locales
-`9092`, `9093` y `9094`.
+`9092`, `9093` y `9094`; en Compose usa las direcciones internas de los
+brokers (`kafka1:29092`, `kafka2:29092` y `kafka3:29092`).

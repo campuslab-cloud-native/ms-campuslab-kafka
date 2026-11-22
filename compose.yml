@@ -156,6 +156,19 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: 'kafka1:29092,kafka2:29092,kafka3:29092'
     networks: [kafka-net]
 
+  kafka-admin:
+    build: .
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: 'kafka1:29092,kafka2:29092,kafka3:29092'
+    ports:
+      - '127.0.0.1:8086:8086'
+    restart: unless-stopped
+    networks: [kafka-net]
+
 networks:
   kafka-net:
     driver: bridge
