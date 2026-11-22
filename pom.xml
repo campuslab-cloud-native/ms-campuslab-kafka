@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>cl.campuslab</groupId>
 	<artifactId>ms-campuslab-kafka</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<name>ms-campuslab-kafka</name>
 	<description>Kafka microservice for CampusLab</description>
 	<url/>

@@ -157,6 +157,7 @@ services:
     networks: [kafka-net]
 
   kafka-admin:
+    image: campuslab/kafka-admin:${CAMPUSLAB_VERSION:-1.0.0}
     build: .
     depends_on:
       - kafka1
