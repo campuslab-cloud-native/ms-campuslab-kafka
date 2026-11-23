@@ -1,4 +1,4 @@
-package ms_campuslab_kafka.presentation;
+package ms_campuslab_kafka.exception;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,9 +23,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import ms_campuslab_kafka.domain.ProtectedTopicException;
 
-/**
- * Traduce los errores de Kafka y de validación a respuestas HTTP con un cuerpo {"message": "..."}.
- */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
